@@ -12,7 +12,7 @@ Allows users to:
 - And more!
 
 ## How to use it:
-- Opens in a browser page (You must clone it by getting the link and running it in VS code, or some other way)
+- Opens in a browser page (You must clone it by getting the link and running it in VS code, or download index.html and open in)
 - Create deck, add name for deck, create flashcards of any type/format
 - Study and Recall anything and everything!
 
