@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f6f7fb">
+  <title>Recall — Flashcards</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20233a;
+      --muted: #73788f;
+      --line: #e7e9f1;
+      --paper: #fff;
+      --canvas: #f6f7fb;
+      --accent: #6157e8;
+      --accent-dark: #4a40ca;
+      --accent-soft: #eeedff;
+      --danger: #c4475a;
+      --shadow: 0 14px 40px rgb(34 39 75 / 7%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; color: var(--ink); background: var(--canvas); }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid rgb(97 87 232 / 35%);
+      outline-offset: 2px;
+    }
+    .app-shell { display: grid; grid-template-columns: 258px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { display: flex; flex-direction: column; padding: 28px 18px; background: var(--paper); border-right: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 11px; margin: 0 8px 40px; font-size: 20px; font-weight: 780; letter-spacing: -.7px; }
+    .brand-mark { display: grid; width: 35px; height: 35px; place-items: center; border-radius: 12px; color: #fff; background: var(--accent); font-size: 18px; }
+    .section-label { margin: 0 10px 12px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: 1.2px; text-transform: uppercase; }
+    .deck-list { display: grid; gap: 5px; }
+    .deck-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 10px; text-align: left; border: 0; border-radius: 10px; color: #555a70; background: transparent; }
+    .deck-row:hover { background: #f5f5fb; }
+    .deck-row[aria-current="true"] { color: var(--accent-dark); background: var(--accent-soft); font-weight: 680; }
+    .deck-icon { display: grid; width: 23px; height: 23px; flex: 0 0 auto; place-items: center; border-radius: 7px; color: var(--accent); background: #fff; font-size: 12px; }
+    .deck-name { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+    .deck-count { color: var(--muted); font-size: 12px; }
+    .sidebar-actions { display: grid; gap: 8px; margin-top: 15px; }
+    .sidebar-note { margin: auto 8px 0; padding-top: 28px; color: #9296a8; font-size: 12px; line-height: 1.6; }
+    .main { min-width: 0; padding: 42px clamp(22px, 5vw, 72px) 60px; }
+    .main-inner { max-width: 1120px; margin: 0 auto; }
+    .topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 36px; }
+    .eyebrow { margin: 0 0 6px; color: var(--accent); font-size: 12px; font-weight: 750; letter-spacing: 1.1px; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(27px, 4vw, 38px); letter-spacing: -1.5px; line-height: 1.1; }
+    .top-actions, .toolbar, .card-actions { display: flex; align-items: center; gap: 9px; }
+    .study-mode-picker { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .study-mode-picker select { min-height: 40px; max-width: 175px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--paper); font-size: 12px; }
+    .shuffle-picker { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .shuffle-picker input { width: 15px; height: 15px; accent-color: var(--accent); }
+    .button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--paper); font-size: 13px; font-weight: 650; transition: background .16s, border-color .16s, transform .16s; }
+    .button:hover { border-color: #cfd1e1; background: #fafaff; }
+    .button:active { transform: translateY(1px); }
+    .button.primary { border-color: var(--accent); color: #fff; background: var(--accent); }
+    .button.primary:hover { border-color: var(--accent-dark); background: var(--accent-dark); }
+    .button.quiet { color: var(--muted); }
+    .button.danger { color: var(--danger); }
+    .button.icon-only { width: 38px; min-height: 38px; padding: 0; }
+    .summary { display: flex; align-items: center; gap: 8px; margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+    .summary-dot { width: 4px; height: 4px; border-radius: 50%; background: #b6b9c9; }
+    .progress-count { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; padding: 5px 8px; border-radius: 7px; color: #176345; background: #e8f7ef; font-size: 11px; font-weight: 700; }
+    .progress-count.incorrect { color: #9c3344; background: #fff0f1; }
+    .toolbar { justify-content: space-between; margin-bottom: 20px; }
+    .view-switch { display: inline-flex; gap: 3px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
+    .view-switch button { min-height: 31px; padding: 0 10px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 650; }
+    .view-switch button[aria-pressed="true"] { color: var(--accent-dark); background: var(--accent-soft); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 16px; }
+    .cards.list { grid-template-columns: 1fr; }
+    .flashcard { overflow: hidden; min-height: 205px; padding: 20px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); box-shadow: 0 3px 12px rgb(34 39 75 / 3%); }
+    .cards.list .flashcard { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; min-height: 130px; }
+    .card-label { margin: 0 0 10px; color: var(--accent); font-size: 10px; font-weight: 750; letter-spacing: 1px; text-transform: uppercase; }
+    .card-question { margin: 0; font-size: 17px; font-weight: 720; line-height: 1.45; overflow-wrap: anywhere; }
+    .card-answer { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+    .card-image { display: block; max-width: 100%; max-height: 160px; margin-top: 14px; border-radius: 9px; object-fit: cover; }
+    .card-actions { justify-content: flex-end; margin-top: 19px; }
+    .cards.list .card-actions { margin-top: 0; }
+    .card-actions .button { min-height: 34px; padding: 0 10px; font-size: 12px; }
+    .type-tag { display: inline-block; margin: 12px 0 0; padding: 5px 8px; border-radius: 7px; color: var(--accent-dark); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
+    .empty-state { padding: clamp(34px, 8vw, 70px) 20px; border: 1px dashed #d9dbea; border-radius: 16px; text-align: center; background: rgb(255 255 255 / 55%); }
+    .empty-icon { display: grid; width: 54px; height: 54px; place-items: center; margin: 0 auto 15px; border-radius: 17px; color: var(--accent); background: var(--accent-soft); font-size: 24px; }
+    .empty-state h2 { margin: 0; font-size: 19px; letter-spacing: -.4px; }
+    .empty-state p { max-width: 380px; margin: 8px auto 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .notice { position: fixed; right: 22px; bottom: 20px; z-index: 3; max-width: min(440px, calc(100vw - 44px)); padding: 13px 16px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: #fff; box-shadow: var(--shadow); font-size: 13px; }
+    .notice[hidden] { display: none; }
+    dialog { width: min(530px, calc(100% - 32px)); max-height: min(90vh, 760px); padding: 0; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--paper); box-shadow: 0 25px 90px rgb(24 27 55 / 22%); }
+    dialog::backdrop { background: rgb(28 30 55 / 42%); backdrop-filter: blur(2px); }
+    .dialog-content { padding: 25px; }
+    .dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+    .dialog-header h2 { margin: 0; font-size: 22px; letter-spacing: -.7px; }
+    .dialog-header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .field { display: grid; gap: 7px; margin-bottom: 16px; }
+    .field label { font-size: 12px; font-weight: 700; }
+    .field input, .field textarea { width: 100%; padding: 11px 12px; border: 1px solid #dfe1eb; border-radius: 9px; color: var(--ink); background: #fff; font-size: 14px; }
+    .field textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
+    .field input[type="file"] { padding: 9px; color: var(--muted); font-size: 12px; }
+    .field-hint { margin: -1px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .type-choice-list { display: grid; gap: 9px; }
+    .type-choice { display: grid; gap: 4px; padding: 14px; text-align: left; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: #fff; }
+    .type-choice:hover { border-color: var(--accent); background: #fafaff; }
+    .type-choice strong { font-size: 13px; }
+    .type-choice span { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.4; }
+    .selected-type-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fafaff; }
+    .selected-type-label { color: var(--accent-dark); font-size: 13px; font-weight: 700; }
+    .image-preview { max-width: 100%; max-height: 150px; margin-top: 3px; border-radius: 8px; object-fit: contain; }
+    .remove-image { justify-self: start; padding: 0; border: 0; color: var(--danger); background: transparent; font-size: 12px; }
+    .dialog-footer { display: flex; justify-content: flex-end; gap: 9px; margin-top: 23px; }
+    .study-panel { max-width: 760px; margin: 0 auto; padding: clamp(20px, 5vw, 42px); border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow); }
+    .study-top { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 32px; color: var(--muted); font-size: 13px; }
+    .study-progress { color: var(--accent); font-weight: 700; }
+    .study-prompt { margin: 0 0 24px; font-size: clamp(23px, 4vw, 34px); letter-spacing: -.8px; line-height: 1.35; overflow-wrap: anywhere; }
+    .study-answer { margin: 20px 0 0; padding: 18px; border-radius: 11px; color: var(--ink); background: #f5f5fb; font-size: 17px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .study-options { display: grid; gap: 10px; }
+    .study-option { justify-content: flex-start; min-height: 48px; text-align: left; }
+    .study-option[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-soft); }
+    .study-feedback { margin: 16px 0 0; padding: 12px 14px; border-radius: 9px; font-size: 13px; line-height: 1.5; }
+    .study-feedback.correct { color: #176345; background: #e8f7ef; }
+    .study-feedback.incorrect { color: #9c3344; background: #fff0f1; }
+    .study-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; margin-top: 24px; }
+    .session-result { margin: 20px 0; color: var(--accent); font-size: clamp(36px, 8vw, 56px); font-weight: 800; letter-spacing: -2px; }
+    .session-result-label { margin: -12px 0 0; color: var(--muted); font-size: 13px; }
+    .session-result-counts { margin: 10px 0 0; color: var(--ink); font-size: 13px; font-weight: 650; }
+    .study-blank { display: inline-block; width: min(250px, 60vw); margin: 4px; padding: 7px 9px; border: 0; border-bottom: 2px solid var(--accent); border-radius: 5px 5px 0 0; color: var(--ink); background: #f5f5fb; font-size: inherit; }
+    .study-image { display: block; max-width: 100%; max-height: 230px; margin: 18px 0 0; border-radius: 10px; object-fit: contain; }
+    .study-help { margin: 17px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
+    @media (max-width: 760px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { padding: 16px 18px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand { margin: 0 5px 16px; }
+      .section-label, .sidebar-note { display: none; }
+      .deck-list { display: flex; overflow-x: auto; gap: 5px; padding-bottom: 4px; }
+      .deck-row { width: auto; flex: 0 0 auto; }
+      .sidebar-actions { display: flex; margin-top: 10px; }
+      .sidebar-actions .button { min-height: 35px; }
+      .main { padding-top: 28px; }
+      .topline { align-items: flex-start; margin-bottom: 27px; }
+    }
+    @media (max-width: 520px) {
+      .topline { flex-direction: column; }
+      .top-actions { width: 100%; }
+      .top-actions .button { flex: 1; }
+      .toolbar { align-items: flex-start; }
+      .cards { grid-template-columns: 1fr; }
+      .cards.list .flashcard { grid-template-columns: 1fr; }
+      .cards.list .card-actions { justify-content: flex-start; }
+      .dialog-content { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Deck navigation">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">R</span><span>Recall</span></div>
+      <p class="section-label">Your decks</p>
+      <nav class="deck-list" id="deck-list" aria-label="Your decks"></nav>
+      <div class="sidebar-actions">
+        <button class="button" id="create-deck" type="button">＋ New deck</button>
+      </div>
+      <p class="sidebar-note">Your decks and cards stay in this browser, saved locally on your device.</p>
+    </aside>
+
+    <main class="main">
+      <div class="main-inner">
+        <header class="topline">
+          <div>
+            <p class="eyebrow">Your learning space</p>
+            <h1 id="page-title">Choose a deck</h1>
+          </div>
+          <div class="top-actions" id="deck-actions" hidden>
+            <button class="button" id="rename-deck" type="button">Edit deck</button>
+            <button class="button danger" id="delete-deck" type="button">Delete deck</button>
+            <label class="study-mode-picker" for="study-mode">
+              <span>Study mode</span>
+              <select id="study-mode" aria-label="Choose study mode">
+                <option value="all">All formats</option>
+                <option value="flashcard">Flashcards only</option>
+                <option value="multiple-choice">Multiple choice only</option>
+                <option value="true-false">True or false only</option>
+                <option value="fill-blank">Fill in the blank only</option>
+              </select>
+            </label>
+            <label class="shuffle-picker" for="shuffle-study">
+              <input id="shuffle-study" type="checkbox" checked>
+              <span>Shuffle cards</span>
+            </label>
+            <button class="button" id="study-deck" type="button">Start studying</button>
+            <button class="button primary" id="add-card" type="button">＋ Add flashcard</button>
+          </div>
+        </header>
+        <p class="summary" id="deck-summary" hidden></p>
+        <section aria-label="Flashcards">
+          <div class="toolbar" id="card-toolbar" hidden>
+            <span class="section-label" style="margin:0">Flashcards</span>
+            <div class="view-switch" role="group" aria-label="Flashcard layout">
+              <button type="button" data-view="grid" aria-pressed="true">Grid</button>
+              <button type="button" data-view="list" aria-pressed="false">List</button>
+            </div>
+          </div>
+          <div id="card-content"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+
+  <dialog id="deck-dialog" aria-labelledby="deck-dialog-title">
+    <form class="dialog-content" id="deck-form">
+      <div class="dialog-header">
+        <div><h2 id="deck-dialog-title">Create a deck</h2><p>Give this collection a name.</p></div>
+        <button class="button icon-only quiet" type="button" data-close-dialog aria-label="Close">✕</button>
+      </div>
+      <div class="field">
+        <label for="deck-name">Deck name</label>
+        <input id="deck-name" name="name" maxlength="60" required autocomplete="off" placeholder="e.g. Spanish basics">
+      </div>
+      <div class="dialog-footer">
+        <button class="button" type="button" data-close-dialog>Cancel</button>
+        <button class="button primary" type="submit">Save deck</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="card-dialog" aria-labelledby="card-dialog-title">
+    <div class="dialog-content">
+      <section id="card-type-step" aria-labelledby="card-type-title">
+        <div class="dialog-header">
+          <div><h2 id="card-type-title">What kind of card are you creating?</h2><p>Choose a format to see the fields it needs.</p></div>
+          <button class="button icon-only quiet" type="button" data-close-dialog aria-label="Close">✕</button>
+        </div>
+        <div class="type-choice-list" role="group" aria-label="Card format choices">
+          <button class="type-choice" type="button" data-card-type="flashcard"><strong>Flashcard</strong><span>Show a question, then reveal a written answer.</span></button>
+          <button class="type-choice" type="button" data-card-type="multiple-choice"><strong>Multiple choice</strong><span>Choose the correct answer from a list of options.</span></button>
+          <button class="type-choice" type="button" data-card-type="true-false"><strong>True or false</strong><span>Decide whether a statement is true or false.</span></button>
+          <button class="type-choice" type="button" data-card-type="fill-blank"><strong>Fill in the blank</strong><span>Complete a sentence by typing the missing answer.</span></button>
+        </div>
+      </section>
+      <form id="card-form" hidden>
+      <div class="dialog-header">
+        <div><h2 id="card-dialog-title">Add a flashcard</h2><p>Fill in the short prompts for this format.</p></div>
+        <button class="button icon-only quiet" type="button" data-close-dialog aria-label="Close">✕</button>
+      </div>
+      <div class="field">
+        <input id="card-type-input" name="type" type="hidden" value="flashcard">
+        <div class="selected-type-row"><span class="selected-type-label" id="selected-type-label">Flashcard</span><button class="button" id="change-card-type" type="button">Change type</button></div>
+      </div>
+      <div class="field">
+        <label for="card-question-input">Question</label>
+        <textarea id="card-question-input" name="question" maxlength="1000" required placeholder="What do you want to remember?"></textarea>
+        <p class="field-hint" id="question-hint">Write the question that will appear during study.</p>
+      </div>
+      <div class="field" id="answer-field">
+        <label for="card-answer-input">Answer</label>
+        <textarea id="card-answer-input" name="answer" maxlength="2000" required placeholder="Write the answer..."></textarea>
+        <p class="field-hint" id="answer-hint">Write the answer that should appear when revealed.</p>
+      </div>
+      <div class="field" id="options-field" hidden>
+        <label for="card-options-input">Answer options (one per line)</label>
+        <textarea id="card-options-input" maxlength="1000" placeholder="Add at least two options, one per line"></textarea>
+        <p class="field-hint">Enter 2–6 different choices, one on each line.</p>
+        <label for="correct-option-input">Correct option</label>
+        <select id="correct-option-input"></select>
+        <p class="field-hint">Choose which option is correct.</p>
+      </div>
+      <div class="field" id="true-false-field" hidden>
+        <label for="true-false-answer">Correct answer</label>
+        <select id="true-false-answer"><option value="True">True</option><option value="False">False</option></select>
+        <p class="field-hint">Choose whether the statement is true or false.</p>
+      </div>
+      <div class="field">
+        <label for="card-image-input">Image (optional)</label>
+        <input id="card-image-input" name="image" type="file" accept="image/*">
+        <p class="field-hint">Choose an image up to 2 MB to show with this card.</p>
+        <img class="image-preview" id="image-preview" alt="Selected image preview" hidden>
+        <button class="remove-image" id="remove-image" type="button" hidden>Remove image</button>
+      </div>
+      <div class="dialog-footer">
+        <button class="button" type="button" data-close-dialog>Cancel</button>
+        <button class="button primary" type="submit">Save flashcard</button>
+      </div>
+      </form>
+    </div>
+  </dialog>
+
+  <template id="study-template">
+    <div class="study-panel">
+      <div class="study-top"><span class="study-progress"></span><button class="button quiet study-exit" type="button">Exit study</button></div>
+      <div class="study-body"></div>
+      <p class="study-help">Use ← and → to move between cards. Press Space to reveal flashcard answers.</p>
+    </div>
+  </template>
+
+  <script>
+    "use strict";
+    const STORAGE_KEY = "recall-flashcards-v1";
+    const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+    const deckList = document.getElementById("deck-list");
+    const cardContent = document.getElementById("card-content");
+    const title = document.getElementById("page-title");
+    const deckActions = document.getElementById("deck-actions");
+    const deckSummary = document.getElementById("deck-summary");
+    const cardToolbar = document.getElementById("card-toolbar");
+    const deckDialog = document.getElementById("deck-dialog");
+    const cardDialog = document.getElementById("card-dialog");
+    const deckForm = document.getElementById("deck-form");
+    const cardForm = document.getElementById("card-form");
+    const cardTypeStep = document.getElementById("card-type-step");
+    const cardTypeInput = document.getElementById("card-type-input");
+    const questionInput = document.getElementById("card-question-input");
+    const answerInput = document.getElementById("card-answer-input");
+    const optionsInput = document.getElementById("card-options-input");
+    const correctOptionInput = document.getElementById("correct-option-input");
+    const answerField = document.getElementById("answer-field");
+    const optionsField = document.getElementById("options-field");
+    const trueFalseField = document.getElementById("true-false-field");
+    const selectedTypeLabel = document.getElementById("selected-type-label");
+    const imageInput = document.getElementById("card-image-input");
+    const imagePreview = document.getElementById("image-preview");
+    const removeImageButton = document.getElementById("remove-image");
+    let decks = loadDecks();
+    let selectedDeckId = decks[0]?.id ?? null;
+    let editingDeckId = null;
+    let editingCardId = null;
+    let retainedImage = "";
+    let currentView = "grid";
+    let studyState = null;
+    let noticeTimer;
+
+    function announce(message) {
+      const notice = document.getElementById("notice");
+      notice.textContent = message;
+      notice.hidden = false;
+      window.clearTimeout(noticeTimer);
+      noticeTimer = window.setTimeout(() => { notice.hidden = true; }, 5000);
+    }
+
+    function isDeck(value) {
+      return value !== null && typeof value === "object"
+        && typeof value.id === "string" && typeof value.name === "string"
+        && Array.isArray(value.cards)
+        && value.cards.every(card => card !== null && typeof card === "object"
+          && typeof card.id === "string" && typeof card.question === "string"
+          && typeof card.answer === "string"
+          && (typeof card.image === "string" || card.image === undefined)
+          && (card.type === undefined || ["flashcard", "multiple-choice", "true-false", "fill-blank"].includes(card.type))
+          && (card.options === undefined || (Array.isArray(card.options) && card.options.every(option => typeof option === "string"))))
+        && (value.progress === undefined || (value.progress !== null && typeof value.progress === "object"
+          && Number.isInteger(value.progress.correct) && value.progress.correct >= 0
+          && Number.isInteger(value.progress.incorrect) && value.progress.incorrect >= 0));
+    }
+
+    function loadDecks() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored === null) return [];
+        const parsed = JSON.parse(stored);
+        if (!Array.isArray(parsed) || !parsed.every(isDeck)) {
+          throw new Error("Saved flashcard data has an unexpected format.");
+        }
+        return parsed.map(deck => deck.progress ? deck : { ...deck, progress: { correct: 0, incorrect: 0 } });
+      } catch (error) {
+        console.error("Could not load saved flashcards:", error);
+        window.setTimeout(() => announce("Saved flashcards could not be loaded. Check the browser console for details."), 0);
+        return [];
+      }
+    }
+
+    function persist() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+        return true;
+      } catch (error) {
+        console.error("Could not save flashcards:", error);
+        announce("Could not save changes in this browser. Check available storage and try again.");
+        return false;
+      }
+    }
+
+    function makeId() {
+      return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function selectedDeck() {
+      return decks.find(deck => deck.id === selectedDeckId) ?? null;
+    }
+
+    function recordAnswer(correct) {
+      const previousDecks = decks;
+      decks = decks.map(deck => deck.id === selectedDeckId
+        ? {
+          ...deck,
+          progress: {
+            correct: (deck.progress?.correct ?? 0) + (correct ? 1 : 0),
+            incorrect: (deck.progress?.incorrect ?? 0) + (correct ? 0 : 1)
+          }
+        }
+        : deck);
+      if (persist()) return true;
+      decks = previousDecks;
+      return false;
+    }
+
+    function shuffleCards(cards) {
+      for (let index = cards.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [cards[index], cards[swapIndex]] = [cards[swapIndex], cards[index]];
+      }
+      return cards;
+    }
+
+    function createStudyState(sourceCards, mode, shuffled) {
+      const cards = [...sourceCards];
+      if (shuffled) shuffleCards(cards);
+      return {
+        index: 0,
+        cards,
+        sourceCards: [...sourceCards],
+        mode,
+        shuffled,
+        revealed: false,
+        selectedOption: "",
+        submitted: false,
+        feedback: null,
+        sessionCorrect: 0,
+        sessionIncorrect: 0
+      };
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, character => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[character]);
+    }
+
+    function render() {
+      deckList.replaceChildren();
+      decks.forEach(deck => {
+        const button = document.createElement("button");
+        button.className = "deck-row";
+        button.type = "button";
+        button.setAttribute("aria-current", String(deck.id === selectedDeckId));
+        button.innerHTML = `<span class="deck-icon" aria-hidden="true">▤</span><span class="deck-name"></span><span class="deck-count">${deck.cards.length}</span>`;
+        button.querySelector(".deck-name").textContent = deck.name;
+        button.addEventListener("click", () => {
+          selectedDeckId = deck.id;
+          studyState = null;
+          render();
+        });
+        deckList.append(button);
+      });
+
+      const deck = selectedDeck();
+      deckActions.hidden = !deck;
+      deckSummary.hidden = !deck;
+      cardToolbar.hidden = !deck || deck.cards.length === 0 || Boolean(studyState);
+      const studyModePicker = document.getElementById("study-mode").closest("label");
+      studyModePicker.hidden = !deck || deck.cards.length === 0 || Boolean(studyState);
+      document.getElementById("shuffle-study").closest("label").hidden = !deck || deck.cards.length === 0 || Boolean(studyState);
+      document.getElementById("study-deck").disabled = !deck || deck.cards.length === 0;
+      document.getElementById("study-deck").textContent = studyState ? "Studying…" : "Start studying";
+      title.textContent = deck ? studyState ? `Studying ${deck.name}` : deck.name : decks.length ? "Choose a deck" : "Make learning stick";
+      if (!deck) {
+        studyState = null;
+        deckSummary.replaceChildren();
+        cardContent.innerHTML = `<div class="empty-state"><div class="empty-icon" aria-hidden="true">✦</div><h2>${decks.length ? "Select a deck to get started" : "Start with your first deck"}</h2><p>${decks.length ? "Choose a collection from the sidebar, or create a new deck." : "Create a deck for a subject you are learning, then add your first flashcard."}</p><button class="button primary" type="button" id="empty-create-deck">＋ Create a deck</button></div>`;
+        document.getElementById("empty-create-deck").addEventListener("click", () => openDeckDialog());
+        return;
+      }
+
+      const progress = deck.progress ?? { correct: 0, incorrect: 0 };
+      deckSummary.innerHTML = `<span>${deck.cards.length} ${deck.cards.length === 1 ? "flashcard" : "flashcards"}</span><span class="progress-count" aria-label="${progress.correct} correct answers">✓ ${progress.correct} correct</span><span class="progress-count incorrect" aria-label="${progress.incorrect} incorrect answers">× ${progress.incorrect} incorrect</span>`;
+      if (studyState) {
+        document.getElementById("rename-deck").hidden = true;
+        document.getElementById("delete-deck").hidden = true;
+        document.getElementById("study-deck").hidden = true;
+        document.getElementById("add-card").hidden = true;
+        renderStudy();
+        return;
+      }
+      document.getElementById("rename-deck").hidden = false;
+      document.getElementById("delete-deck").hidden = false;
+      document.getElementById("study-deck").hidden = false;
+      document.getElementById("add-card").hidden = false;
+      if (deck.cards.length === 0) {
+        cardContent.innerHTML = `<div class="empty-state"><div class="empty-icon" aria-hidden="true">＋</div><h2>This deck is ready for its first card</h2><p>Add a question and answer to begin building your study set.</p><button class="button primary" type="button" id="empty-add-card">＋ Add flashcard</button></div>`;
+        document.getElementById("empty-add-card").addEventListener("click", () => openCardDialog());
+        return;
+      }
+
+      const cards = document.createElement("div");
+      cards.className = `cards ${currentView}`;
+      deck.cards.forEach((card, index) => {
+        const article = document.createElement("article");
+        article.className = "flashcard";
+        const format = card.type ?? "flashcard";
+        const formatNames = { flashcard: "Flashcard", "multiple-choice": "Multiple choice", "true-false": "True or false", "fill-blank": "Fill in the blank" };
+        article.innerHTML = `<div class="card-copy"><p class="card-label">Card ${index + 1}</p><h2 class="card-question"></h2><span class="type-tag">${formatNames[format] ?? "Flashcard"}</span><p class="card-answer"></p>${card.image ? `<img class="card-image" src="${escapeHtml(card.image)}" alt="Image for card ${index + 1}">` : ""}</div><div class="card-actions"><button class="button" type="button" data-action="edit">Edit</button><button class="button danger" type="button" data-action="delete">Delete</button></div>`;
+        article.querySelector(".card-question").textContent = card.question;
+        article.querySelector(".card-answer").textContent = card.answer;
+        article.querySelector('[data-action="edit"]').addEventListener("click", () => openCardDialog(card.id));
+        article.querySelector('[data-action="delete"]').addEventListener("click", () => deleteCard(card.id));
+        cards.append(article);
+      });
+      cardContent.replaceChildren(cards);
+    }
+
+    function openDeckDialog(deckId = null) {
+      editingDeckId = deckId;
+      const deck = decks.find(item => item.id === deckId);
+      document.getElementById("deck-dialog-title").textContent = deck ? "Edit deck" : "Create a deck";
+      document.getElementById("deck-name").value = deck?.name ?? "";
+      deckDialog.showModal();
+      document.getElementById("deck-name").focus();
+    }
+
+    function openCardDialog(cardId = null) {
+      const deck = selectedDeck();
+      if (!deck) return;
+      editingCardId = cardId;
+      const card = deck.cards.find(item => item.id === cardId);
+      document.getElementById("card-dialog-title").textContent = card ? "Edit flashcard" : "Add a flashcard";
+      cardForm.reset();
+      cardTypeInput.value = card?.type ?? "flashcard";
+      questionInput.value = card?.question ?? "";
+      answerInput.value = card?.answer ?? "";
+      optionsInput.value = card?.type === "multiple-choice" ? (card.options ?? []).join("\n") : "";
+      document.getElementById("true-false-answer").value = card?.type === "true-false" ? card.answer : "True";
+      refreshCorrectOptions(card?.answer ?? "");
+      updateQuestionFormat();
+      retainedImage = card?.image ?? "";
+      imageInput.value = "";
+      updateImagePreview(retainedImage);
+      if (card) {
+        showCardForm();
+      } else {
+        showCardTypeStep();
+      }
+      cardDialog.showModal();
+      if (card) questionInput.focus();
+    }
+
+    function showCardTypeStep() {
+      cardTypeStep.hidden = false;
+      cardForm.hidden = true;
+      cardDialog.setAttribute("aria-labelledby", "card-type-title");
+    }
+
+    function showCardForm() {
+      cardTypeStep.hidden = true;
+      cardForm.hidden = false;
+      cardDialog.setAttribute("aria-labelledby", "card-dialog-title");
+      questionInput.focus();
+    }
+
+    function chooseCardType(type) {
+      cardTypeInput.value = type;
+      refreshCorrectOptions();
+      updateQuestionFormat();
+      showCardForm();
+    }
+
+    function refreshCorrectOptions(preferredValue = correctOptionInput.value) {
+      const options = optionsInput.value.split("\n").map(option => option.trim()).filter(Boolean);
+      correctOptionInput.replaceChildren();
+      options.forEach((option, index) => {
+        const element = document.createElement("option");
+        element.value = option;
+        element.textContent = option || `Option ${index + 1}`;
+        correctOptionInput.append(element);
+      });
+      if (options.includes(preferredValue)) correctOptionInput.value = preferredValue;
+    }
+
+    function updateQuestionFormat() {
+      const type = cardTypeInput.value;
+      const usesOptions = type === "multiple-choice";
+      const usesTrueFalse = type === "true-false";
+      const usesTextAnswer = type === "flashcard" || type === "fill-blank";
+      const typeNames = { flashcard: "Flashcard", "multiple-choice": "Multiple choice", "true-false": "True or false", "fill-blank": "Fill in the blank" };
+      selectedTypeLabel.textContent = typeNames[type] ?? "Flashcard";
+      answerField.hidden = !usesTextAnswer;
+      answerInput.required = usesTextAnswer;
+      optionsField.hidden = !usesOptions;
+      trueFalseField.hidden = !usesTrueFalse;
+      document.getElementById("question-hint").textContent = type === "fill-blank"
+        ? "Write a sentence and include ____ where the answer belongs."
+        : type === "true-false"
+          ? "Write a statement that can be judged true or false."
+          : type === "multiple-choice"
+            ? "Write the question that the answer choices will answer."
+            : "Write the question that will appear during study.";
+      document.getElementById("answer-hint").textContent = type === "fill-blank"
+        ? "Enter the word or phrase that belongs in the blank."
+        : "Write the answer that should appear when revealed.";
+      questionInput.placeholder = type === "fill-blank" ? "Example: The largest planet is ____." : "What do you want to remember?";
+    }
+
+    function updateImagePreview(source) {
+      imagePreview.src = source;
+      imagePreview.hidden = !source;
+      removeImageButton.hidden = !source;
+    }
+
+    function readImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => {
+          if (typeof reader.result !== "string") {
+            reject(new Error("The selected image could not be read."));
+            return;
+          }
+          resolve(reader.result);
+        }, { once: true });
+        reader.addEventListener("error", () => reject(reader.error ?? new Error("The selected image could not be read.")), { once: true });
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderStudy() {
+      const cards = studyState.cards;
+      const template = document.getElementById("study-template");
+      const panel = template.content.cloneNode(true);
+      const progress = panel.querySelector(".study-progress");
+      const body = panel.querySelector(".study-body");
+      const exit = panel.querySelector(".study-exit");
+      const index = studyState.index;
+      exit.addEventListener("click", () => {
+        studyState = null;
+        render();
+      });
+
+      if (index >= cards.length) {
+        progress.textContent = "Deck complete";
+        const totalAnswered = studyState.sessionCorrect + studyState.sessionIncorrect;
+        const percentage = totalAnswered ? Math.round(studyState.sessionCorrect / totalAnswered * 100) : null;
+        body.innerHTML = `<div class="empty-state"><div class="empty-icon" aria-hidden="true">✓</div><h2>Study session complete</h2><p>You reached the end of this study set.</p><p class="session-result" aria-label="Session accuracy">${percentage === null ? "—" : `${percentage}%`}</p><p class="session-result-label">${totalAnswered ? "accuracy on answers you checked or self-rated" : "No answers were checked or self-rated."}</p><p class="session-result-counts">${studyState.sessionCorrect} correct · ${studyState.sessionIncorrect} incorrect</p><div class="study-actions"><button class="button" type="button" data-study-return>Return to cards</button><button class="button primary" type="button" data-study-restart>Study again</button></div></div>`;
+        body.querySelector("[data-study-return]").addEventListener("click", () => {
+          studyState = null;
+          render();
+        });
+        body.querySelector("[data-study-restart]").addEventListener("click", () => {
+          studyState = createStudyState(studyState.sourceCards, studyState.mode, studyState.shuffled);
+          render();
+        });
+        cardContent.replaceChildren(panel);
+        return;
+      }
+
+      const card = cards[index];
+      const type = card.type ?? "flashcard";
+      const heading = document.createElement("h2");
+      heading.className = "study-prompt";
+      if (type === "fill-blank") {
+        heading.innerHTML = escapeHtml(card.question).replace(/_{2,}|\[blank\]/i, '<input class="study-blank" type="text" aria-label="Your answer" autocomplete="off">');
+      } else {
+        heading.textContent = card.question;
+      }
+      const modeNames = { all: "All formats", flashcard: "Flashcards", "multiple-choice": "Multiple choice", "true-false": "True or false", "fill-blank": "Fill in the blank" };
+      progress.textContent = `${modeNames[studyState.mode]}${studyState.shuffled ? " · Shuffled" : ""} · Card ${index + 1} of ${cards.length}`;
+      body.append(heading);
+      if (card.image) {
+        const image = document.createElement("img");
+        image.className = "study-image";
+        image.src = card.image;
+        image.alt = "Image for this question";
+        body.append(image);
+      }
+
+      function advance(direction = 1) {
+        studyState.index = Math.min(cards.length, Math.max(0, studyState.index + direction));
+        studyState.revealed = false;
+        studyState.selectedOption = "";
+        studyState.submitted = false;
+        studyState.feedback = null;
+        render();
+      }
+
+      function revealAnswer() {
+        studyState.revealed = true;
+        render();
+      }
+
+      function addFeedback(result) {
+        const feedback = document.createElement("p");
+        feedback.className = `study-feedback ${result.correct ? "correct" : "incorrect"}`;
+        feedback.setAttribute("role", "status");
+        feedback.textContent = result.message;
+        body.append(feedback);
+      }
+
+      function addNextButton() {
+        const actions = document.createElement("div");
+        actions.className = "study-actions";
+        const next = document.createElement("button");
+        next.className = "button primary";
+        next.type = "button";
+        next.textContent = index + 1 === cards.length ? "Finish deck" : "Next card →";
+        next.addEventListener("click", () => advance());
+        actions.append(next);
+        body.append(actions);
+      }
+
+      if (type === "flashcard") {
+        if (studyState.revealed) {
+          const answer = document.createElement("p");
+          answer.className = "study-answer";
+          answer.textContent = card.answer;
+          body.append(answer);
+          if (studyState.submitted) {
+            addFeedback(studyState.feedback);
+            addNextButton();
+          } else {
+            const actions = document.createElement("div");
+            actions.className = "study-actions";
+            const remembered = document.createElement("button");
+            remembered.className = "button primary";
+            remembered.type = "button";
+            remembered.textContent = "I remembered";
+            remembered.addEventListener("click", () => {
+              recordAnswer(true);
+              studyState.sessionCorrect += 1;
+              studyState.submitted = true;
+              studyState.feedback = { correct: true, message: "Marked as correct." };
+              render();
+            });
+            const missed = document.createElement("button");
+            missed.className = "button";
+            missed.type = "button";
+            missed.textContent = "I missed it";
+            missed.addEventListener("click", () => {
+              recordAnswer(false);
+              studyState.sessionIncorrect += 1;
+              studyState.submitted = true;
+              studyState.feedback = { correct: false, message: "Marked as incorrect." };
+              render();
+            });
+            actions.append(remembered, missed);
+            body.append(actions);
+          }
+        } else {
+          const actions = document.createElement("div");
+          actions.className = "study-actions";
+          const reveal = document.createElement("button");
+          reveal.className = "button primary";
+          reveal.type = "button";
+          reveal.textContent = "Reveal answer";
+          reveal.addEventListener("click", revealAnswer);
+          actions.append(reveal);
+          body.append(actions);
+        }
+      } else {
+        const choices = type === "multiple-choice" ? (card.options ?? []) : ["True", "False"];
+        if (!studyState.submitted) {
+          const optionList = document.createElement("div");
+          optionList.className = "study-options";
+          optionList.setAttribute("role", "group");
+          optionList.setAttribute("aria-label", type === "multiple-choice" ? "Answer options" : "True or false");
+          choices.forEach(option => {
+            const button = document.createElement("button");
+            button.className = "button study-option";
+            button.type = "button";
+            button.textContent = option;
+            button.setAttribute("aria-pressed", String(studyState.selectedOption === option));
+            button.addEventListener("click", () => {
+              studyState.selectedOption = option;
+              optionList.querySelectorAll(".study-option").forEach(choice => {
+                choice.setAttribute("aria-pressed", String(choice === button));
+              });
+              check.disabled = false;
+            });
+            optionList.append(button);
+          });
+          if (type !== "fill-blank") body.append(optionList);
+          const actions = document.createElement("div");
+          actions.className = "study-actions";
+          const check = document.createElement("button");
+          check.className = "button primary";
+          check.type = "button";
+          check.textContent = "Check answer";
+          check.disabled = type === "fill-blank" ? false : !studyState.selectedOption;
+          check.addEventListener("click", () => {
+            const response = type === "fill-blank" ? body.querySelector(".study-blank").value : studyState.selectedOption;
+            const result = evaluateAnswer(response, card.answer, type === "fill-blank");
+            if (type === "fill-blank" && !String(response).trim()) {
+              announce("Enter an answer before checking.");
+              body.querySelector(".study-blank").focus();
+              return;
+            }
+            recordAnswer(result.correct);
+            studyState[result.correct ? "sessionCorrect" : "sessionIncorrect"] += 1;
+            studyState.submitted = true;
+            studyState.feedback = result;
+            render();
+          });
+          actions.append(check);
+          body.append(actions);
+          if (type === "fill-blank") {
+            const input = body.querySelector(".study-blank");
+            input.addEventListener("keydown", event => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                check.click();
+              }
+            });
+            input.focus();
+          }
+        } else {
+          addFeedback(studyState.feedback);
+          const answer = document.createElement("p");
+          answer.className = "study-answer";
+          answer.textContent = `Answer: ${card.answer}`;
+          body.append(answer);
+          addNextButton();
+        }
+      }
+      cardContent.replaceChildren(panel);
+    }
+
+    function normalizeAnswer(value) {
+      return String(value).normalize("NFKC").trim().toLocaleLowerCase().replace(/[.,!?;:]+$/g, "").replace(/\s+/g, " ");
+    }
+
+    function editDistance(left, right) {
+      const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+      for (let row = 1; row <= left.length; row += 1) {
+        let diagonal = previous[0];
+        previous[0] = row;
+        for (let column = 1; column <= right.length; column += 1) {
+          const above = previous[column];
+          previous[column] = Math.min(
+            previous[column] + 1,
+            previous[column - 1] + 1,
+            diagonal + (left[row - 1] === right[column - 1] ? 0 : 1)
+          );
+          diagonal = above;
+        }
+      }
+      return previous[right.length];
+    }
+
+    function evaluateAnswer(response, expected, allowClose) {
+      const actual = normalizeAnswer(response);
+      const correct = normalizeAnswer(expected);
+      if (actual === correct) return { correct: true, message: "Correct!" };
+      if (allowClose && actual && correct && Math.max(actual.length, correct.length) >= 4) {
+        const threshold = Math.max(1, Math.floor(Math.max(actual.length, correct.length) * 0.2));
+        if (editDistance(actual, correct) <= threshold) {
+          return { correct: true, close: true, message: `Close — your answer is close enough to count as correct. The answer is “${expected}”.` };
+        }
+      }
+      return { correct: false, message: `Not quite. The correct answer is “${expected}”.` };
+    }
+
+    deckForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const name = document.getElementById("deck-name").value.trim();
+      if (!name) return;
+      const previousDecks = decks;
+      let deck;
+      if (editingDeckId) {
+        deck = decks.find(item => item.id === editingDeckId);
+        if (!deck) return;
+        decks = decks.map(item => item.id === editingDeckId ? { ...item, name } : item);
+      } else {
+        deck = { id: makeId(), name, cards: [] };
+        decks = [...decks, deck];
+      }
+      selectedDeckId = deck.id;
+      if (!persist()) {
+        decks = previousDecks;
+        render();
+        return;
+      }
+      deckDialog.close();
+      render();
+      announce(editingDeckId ? "Deck updated." : "Deck created.");
+      editingDeckId = null;
+    });
+
+    cardForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const deck = selectedDeck();
+      if (!deck) return;
+      const type = cardTypeInput.value;
+      const question = questionInput.value.trim();
+      const answer = type === "multiple-choice" ? correctOptionInput.value.trim()
+        : type === "true-false" ? document.getElementById("true-false-answer").value
+          : answerInput.value.trim();
+      if (!question) return;
+      let options;
+      if (type === "multiple-choice") {
+        options = optionsInput.value.split("\n").map(option => option.trim()).filter(Boolean);
+        const normalized = options.map(option => option.toLocaleLowerCase());
+        if (options.length < 2 || options.length > 6 || new Set(normalized).size !== options.length) {
+          announce("Add 2–6 distinct answer options, one on each line.");
+          return;
+        }
+        if (!answer) {
+          announce("Choose the correct answer from your answer options.");
+          correctOptionInput.focus();
+          return;
+        }
+        if (!options.includes(answer)) {
+          announce("Choose the correct answer from your answer options.");
+          return;
+        }
+      }
+      if ((type === "flashcard" || type === "fill-blank") && !answer) {
+        answerInput.focus();
+        return;
+      }
+      if (type === "fill-blank" && !/_{2,}|\[blank\]/i.test(question)) {
+        announce("Add ____ or [blank] where the answer should go.");
+        questionInput.focus();
+        return;
+      }
+      const file = imageInput.files?.[0];
+      if (file && !file.type.startsWith("image/")) {
+        announce("Choose a valid image file.");
+        return;
+      }
+      if (file && file.size > MAX_IMAGE_BYTES) {
+        announce("The image must be 2 MB or smaller.");
+        return;
+      }
+
+      let image = retainedImage;
+      if (file) {
+        try {
+          image = await readImage(file);
+        } catch (error) {
+          console.error("Could not read selected image:", error);
+          announce("The selected image could not be read. Choose another image and try again.");
+          return;
+        }
+      }
+
+      const previousDecks = decks;
+      const card = { id: editingCardId ?? makeId(), type, question, answer, image };
+      if (options) card.options = options;
+      decks = decks.map(item => item.id === deck.id
+        ? { ...item, cards: editingCardId
+          ? item.cards.map(existing => existing.id === editingCardId ? card : existing)
+          : [...item.cards, card] }
+        : item);
+      if (!persist()) {
+        decks = previousDecks;
+        render();
+        return;
+      }
+      cardDialog.close();
+      render();
+      announce(editingCardId ? "Flashcard updated." : "Flashcard added.");
+      editingCardId = null;
+      retainedImage = "";
+    });
+
+    function deleteCard(cardId) {
+      const deck = selectedDeck();
+      if (!deck) return;
+      const card = deck.cards.find(item => item.id === cardId);
+      if (!card || !window.confirm("Delete this flashcard? This cannot be undone.")) return;
+      const previousDecks = decks;
+      decks = decks.map(item => item.id === deck.id
+        ? { ...item, cards: item.cards.filter(existing => existing.id !== cardId) }
+        : item);
+      if (!persist()) {
+        decks = previousDecks;
+        render();
+        return;
+      }
+      render();
+      announce("Flashcard deleted.");
+    }
+
+    document.getElementById("create-deck").addEventListener("click", () => openDeckDialog());
+    document.getElementById("add-card").addEventListener("click", () => openCardDialog());
+    document.getElementById("study-deck").addEventListener("click", () => {
+      const deck = selectedDeck();
+      if (!deck || deck.cards.length === 0) return;
+      const mode = document.getElementById("study-mode").value;
+      const cards = mode === "all" ? deck.cards
+        : deck.cards.filter(card => (card.type ?? "flashcard") === mode);
+      if (cards.length === 0) {
+        announce(`This deck has no ${document.getElementById("study-mode").selectedOptions[0].textContent.toLocaleLowerCase()} cards yet.`);
+        return;
+      }
+      studyState = createStudyState(cards, mode, document.getElementById("shuffle-study").checked);
+      render();
+    });
+    document.getElementById("rename-deck").addEventListener("click", () => openDeckDialog(selectedDeckId));
+    document.getElementById("delete-deck").addEventListener("click", () => {
+      const deck = selectedDeck();
+      if (!deck || !window.confirm(`Delete "${deck.name}" and all ${deck.cards.length} of its flashcards? This cannot be undone.`)) return;
+      const previousDecks = decks;
+      decks = decks.filter(item => item.id !== deck.id);
+      selectedDeckId = decks[0]?.id ?? null;
+      if (!persist()) {
+        decks = previousDecks;
+        selectedDeckId = deck.id;
+        render();
+        return;
+      }
+      render();
+      announce("Deck deleted.");
+    });
+    document.querySelectorAll("[data-close-dialog]").forEach(button => {
+      button.addEventListener("click", () => button.closest("dialog").close());
+    });
+    document.getElementById("change-card-type").addEventListener("click", showCardTypeStep);
+    document.querySelectorAll("[data-card-type]").forEach(button => {
+      button.addEventListener("click", () => chooseCardType(button.dataset.cardType));
+    });
+    optionsInput.addEventListener("input", () => refreshCorrectOptions());
+    document.querySelectorAll("[data-view]").forEach(button => {
+      button.addEventListener("click", () => {
+        currentView = button.dataset.view;
+        document.querySelectorAll("[data-view]").forEach(option => option.setAttribute("aria-pressed", String(option === button)));
+        render();
+      });
+    });
+    imageInput.addEventListener("change", async () => {
+      const file = imageInput.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        imageInput.value = "";
+        announce("Choose a valid image file.");
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        imageInput.value = "";
+        announce("The image must be 2 MB or smaller.");
+        return;
+      }
+      try {
+        updateImagePreview(await readImage(file));
+      } catch (error) {
+        console.error("Could not preview selected image:", error);
+        imageInput.value = "";
+        announce("The selected image could not be previewed. Choose another image.");
+      }
+    });
+    removeImageButton.addEventListener("click", () => {
+      retainedImage = "";
+      imageInput.value = "";
+      updateImagePreview("");
+    });
+    cardDialog.addEventListener("close", () => {
+      editingCardId = null;
+      retainedImage = "";
+    });
+    deckDialog.addEventListener("close", () => { editingDeckId = null; });
+    document.addEventListener("keydown", event => {
+      if (!studyState || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof HTMLElement && event.target.matches("input, textarea, select, [contenteditable='true']")) return;
+      const deck = selectedDeck();
+      if (!deck) return;
+      const cards = studyState.cards;
+      if (event.key === "ArrowRight" && studyState.index < cards.length) {
+        event.preventDefault();
+        studyState.index += 1;
+        studyState.revealed = false;
+        studyState.selectedOption = "";
+        studyState.submitted = false;
+        studyState.feedback = null;
+        render();
+      } else if (event.key === "ArrowLeft" && studyState.index > 0) {
+        event.preventDefault();
+        studyState.index -= 1;
+        studyState.revealed = false;
+        studyState.selectedOption = "";
+        studyState.submitted = false;
+        studyState.feedback = null;
+        render();
+      } else if (event.code === "Space" && studyState.index < cards.length
+        && (cards[studyState.index].type ?? "flashcard") === "flashcard"
+        && !(event.target instanceof HTMLElement && event.target.matches("button"))) {
+        event.preventDefault();
+        studyState.revealed = !studyState.revealed;
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
